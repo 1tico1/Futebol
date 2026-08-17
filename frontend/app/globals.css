@@ -1,18 +1,62 @@
+/* Tokens da paleta de referência do skill dataviz — trocar aqui se um dia
+   quiser aplicar a marca própria (ver docs do skill, references/palette.md). */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --page-plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+
+  --series-home: #2a78d6; /* categorical slot 1 */
+  --series-away: #eb6834; /* categorical slot 2 */
+  --series-draw: #898781; /* neutro, não é "identidade" forte */
+
+  --status-good: #0ca30c;
+  --status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page-plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+
+    --series-home: #3987e5;
+    --series-away: #d95926;
+    --series-draw: #898781;
+
+    --status-good: #0ca30c;
+    --status-critical: #e66767;
+  }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #0b0f14;
-  color: #e6edf3;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-plane);
+  color: var(--text-primary);
+}
+
+a {
+  color: inherit;
 }
 
 main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem 4rem;
 }
 
 h1 {
@@ -20,18 +64,54 @@ h1 {
   margin-bottom: 1.5rem;
 }
 
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.section-title {
+  margin-top: 2.5rem;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--text-primary);
+}
+
+/* ---- Cards de partida (dashboard) ---- */
+
 .matches {
   list-style: none;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  margin: 0;
 }
 
 .match-card {
-  border: 1px solid #30363d;
+  border: 1px solid var(--border);
   border-radius: 8px;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.match-card-link {
+  display: block;
   padding: 1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.match-card-link:hover {
+  background: color-mix(in srgb, var(--surface-1) 90%, var(--text-primary) 10%);
 }
 
 .teams {
@@ -40,30 +120,298 @@ h1 {
 
 .round {
   font-size: 0.85rem;
-  color: #8b949e;
-  margin-bottom: 0.5rem;
-}
-
-.probs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.summary {
-  width: 100%;
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  color: #c9d1d9;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 
 .no-prediction {
-  color: #8b949e;
+  color: var(--text-muted);
   font-size: 0.85rem;
+  margin: 0.5rem 0;
 }
 
 .error {
-  color: #f85149;
+  color: var(--status-critical);
+}
+
+/* ---- Últimos resultados ---- */
+
+.results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.results-list a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  background: var(--surface-1);
+}
+
+.results-list a:hover {
+  background: color-mix(in srgb, var(--surface-1) 90%, var(--text-primary) 10%);
+}
+
+.results-date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Cabeçalho da página de partida ---- */
+
+.match-header {
+  margin-bottom: 1.5rem;
+}
+
+.competition-tag {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.35rem;
+}
+
+.match-header h1 {
+  margin: 0 0 0.35rem;
+}
+
+.vs {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.kickoff {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.final-score {
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Barra de probabilidade 1x2 ---- */
+
+.prob-bar-track {
+  display: flex;
+  height: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--gridline);
+  margin-bottom: 0.6rem;
+}
+
+.prob-seg {
+  height: 100%;
+}
+
+.prob-home {
+  background: var(--series-home);
+}
+
+.prob-draw {
+  background: var(--series-draw);
+}
+
+.prob-away {
+  background: var(--series-away);
+}
+
+.prob-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.prob-bar-legend b {
+  color: var(--text-primary);
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+
+.dot-home {
+  background: var(--series-home);
+}
+
+.dot-draw {
+  background: var(--series-draw);
+}
+
+.dot-away {
+  background: var(--series-away);
+}
+
+/* ---- Stat tiles (BTTS, over/under) ---- */
+
+.stat-tiles {
+  display: flex;
+  gap: 1rem;
+}
+
+.stat-tile {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-tile-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-tile-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* ---- Matriz de placar exato ---- */
+
+.score-matrix table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  width: 100%;
+  font-size: 0.75rem;
+}
+
+.score-matrix caption {
+  caption-side: bottom;
+  padding-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.score-matrix th,
+.score-matrix td {
+  text-align: center;
+  padding: 0.35rem;
+  min-width: 28px;
+}
+
+.score-matrix thead th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.score-matrix tbody th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.score-matrix td {
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ---- Forma recente (W/D/L) ---- */
+
+.form-badges {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.form-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.form-w {
+  background: var(--status-good);
+}
+
+.form-d {
+  background: var(--text-muted);
+}
+
+.form-l {
+  background: var(--status-critical);
+}
+
+.form-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ---- Confrontos diretos ---- */
+
+.h2h-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.h2h-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.h2h-date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Painel de contexto da IA ---- */
+
+.ai-panel p {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.ai-adjustments {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
