@@ -1,14 +1,20 @@
-// Job one-off (NÃO faz parte do agendamento pg_cron): importa as últimas 3
-// temporadas de jogos finalizados de Brasileirão + Libertadores de uma vez,
-// pra dar ao worker Python massa de dado suficiente pra treinar o Dixon-Coles
-// (docs/architecture.md, seção 2, exige no mínimo ~3 temporadas de histórico).
+// Job one-off (NÃO faz parte do agendamento pg_cron): importa jogos
+// finalizados de Brasileirão/Libertadores de UMA temporada por invocação,
+// pra dar ao worker Python massa de dado suficiente pra treinar o
+// Dixon-Coles (docs/architecture.md, seção 2, exige mínimo ~3 temporadas).
 //
-// Rode manualmente UMA VEZ (Dashboard > Edge Functions > backfill_historical_matches
-// > Invoke/Test), depois disso o fetch_fixtures/fetch_results normais do
-// dia a dia já mantêm a base atualizada sozinhos.
-//
-// Versão autocontida (sem imports de ../_shared) pra colar direto no editor
-// do dashboard, igual foi feito com generate_prediction.
+// Processar tudo numa invocação só estoura o limite de recursos da Edge
+// Function (testado: WORKER_RESOURCE_LIMIT com 2 competições x 3 temporadas
+// juntas) — por isso o escopo é reduzido a 1 competição + 1 temporada por
+// chamada. Invoque 6x (2 competições x 3 temporadas), variando o body:
+//   {"competition": "brasileirao", "season": 2026}
+//   {"competition": "brasileirao", "season": 2025}
+//   {"competition": "brasileirao", "season": 2024}
+//   {"competition": "libertadores", "season": 2026}
+//   {"competition": "libertadores", "season": 2025}
+//   {"competition": "libertadores", "season": 2024}
+// Upserts são idempotentes (onConflict external_id), então repetir uma
+// combinação já processada não faz mal.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
@@ -111,61 +117,67 @@ async function upsertTeam(client: SupabaseClient, externalId: string | number, n
   return data.id as number;
 }
 
-// Quantas temporadas passadas importar (docs/architecture.md pede "mínimo 3 temporadas").
-const SEASONS_BACK = 3;
+Deno.serve(async (req) => {
+  let body: { competition?: string; season?: number } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // sem body = erro de uso, tratado abaixo
+  }
 
-Deno.serve(async (_req) => {
+  const competitionKey = body.competition as keyof typeof COMPETITIONS | undefined;
+  const season = body.season;
+
+  if (!competitionKey || !COMPETITIONS[competitionKey] || !season) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: 'Body precisa ser {"competition": "brasileirao"|"libertadores", "season": <ano>}',
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const client = getServiceClient();
-  const currentYear = new Date().getUTCFullYear();
-  const seasons = Array.from({ length: SEASONS_BACK }, (_, i) => currentYear - i);
-
-  const summary: Record<string, unknown> = {};
+  const comp = COMPETITIONS[competitionKey];
 
   try {
-    for (const key of Object.keys(COMPETITIONS) as (keyof typeof COMPETITIONS)[]) {
-      const comp = COMPETITIONS[key];
-      const competitionId = await upsertCompetition(client, key);
-      let upserted = 0;
+    const competitionId = await upsertCompetition(client, competitionKey);
+    const seasonId = await upsertSeason(client, competitionId, season);
+    // deno-lint-ignore no-explicit-any
+    const fixtures = await apiFootballGet<any[]>("/fixtures", { league: comp.externalId, season });
 
-      for (const year of seasons) {
-        const seasonId = await upsertSeason(client, competitionId, year);
-        // deno-lint-ignore no-explicit-any
-        const fixtures = await apiFootballGet<any[]>("/fixtures", { league: comp.externalId, season: year });
+    let upserted = 0;
+    for (const fx of fixtures) {
+      const homeTeamId = await upsertTeam(client, fx.teams.home.id, fx.teams.home.name);
+      const awayTeamId = await upsertTeam(client, fx.teams.away.id, fx.teams.away.name);
 
-        for (const fx of fixtures) {
-          const homeTeamId = await upsertTeam(client, fx.teams.home.id, fx.teams.home.name);
-          const awayTeamId = await upsertTeam(client, fx.teams.away.id, fx.teams.away.name);
-
-          const { error } = await client.from("matches").upsert(
-            {
-              external_id: String(fx.fixture.id),
-              season_id: seasonId,
-              round: fx.league?.round ?? null,
-              stage: comp.tier === "knockout" ? "knockout_leg1" : "regular",
-              home_team_id: homeTeamId,
-              away_team_id: awayTeamId,
-              kickoff_at: fx.fixture.date,
-              status: mapFixtureStatus(fx.fixture.status?.short ?? "NS"),
-              home_goals: fx.goals?.home ?? null,
-              away_goals: fx.goals?.away ?? null,
-              venue: fx.fixture.venue?.name ?? null,
-            },
-            { onConflict: "external_id" },
-          );
-          if (error) throw error;
-          upserted += 1;
-        }
-      }
-
-      summary[key] = { upserted, seasons };
+      const { error } = await client.from("matches").upsert(
+        {
+          external_id: String(fx.fixture.id),
+          season_id: seasonId,
+          round: fx.league?.round ?? null,
+          stage: comp.tier === "knockout" ? "knockout_leg1" : "regular",
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          kickoff_at: fx.fixture.date,
+          status: mapFixtureStatus(fx.fixture.status?.short ?? "NS"),
+          home_goals: fx.goals?.home ?? null,
+          away_goals: fx.goals?.away ?? null,
+          venue: fx.fixture.venue?.name ?? null,
+        },
+        { onConflict: "external_id" },
+      );
+      if (error) throw error;
+      upserted += 1;
     }
 
-    return new Response(JSON.stringify({ ok: true, summary }), {
+    return new Response(JSON.stringify({ ok: true, competition: competitionKey, season, upserted }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ ok: false, error: errorMessage, partial: summary }), {
+    return new Response(JSON.stringify({ ok: false, competition: competitionKey, season, error: errorMessage }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
